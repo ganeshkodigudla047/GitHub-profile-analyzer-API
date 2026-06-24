@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitHub Profile Analyzer — Dashboard</title>
+  <meta name="description" content="Analyze GitHub profiles and discover insights about repositories, followers, and coding activity." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <p id="loadingText" style="color:var(--text-muted);font-size:0.9rem;">Analyzing profile...</p>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>🗑️ Delete Profile</h3>
+        <button class="modal-close" onclick="closeModal('deleteModal')">×</button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to delete <strong id="deleteUsername"></strong>'s profile? This action cannot be undone.
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('deleteModal')">Cancel</button>
+        <button class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="container">
+      <a href="/" class="nav-brand">
+        <div class="brand-icon">🐙</div>
+        <span>GitHub Analyzer</span>
+      </a>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="/" class="active"><i class="fas fa-chart-line"></i> Dashboard</a></li>
+        <li><a href="#profiles-section"><i class="fas fa-users"></i> Profiles</a></li>
+        <li><a href="#leaderboard-section"><i class="fas fa-trophy"></i> Leaderboard</a></li>
+        <li><a href="/api-docs" target="_blank"><i class="fas fa-book"></i> API Docs</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button class="theme-btn" id="themeToggle" title="Toggle Theme">🌙</button>
+        <button class="hamburger" id="hamburger" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="page-wrapper">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="container">
+        <div class="hero-badge">✨ GitHub Profile Intelligence</div>
+        <h1>GitHub Profile Analyzer</h1>
+        <p>Analyze any GitHub profile in seconds. Discover repository insights, follower stats, language trends, and calculated scores.</p>
+        <div class="search-box">
+          <input type="text" id="usernameInput" placeholder="Enter GitHub username (e.g. torvalds)" autocomplete="off" />
+          <button class="btn-analyze" id="analyzeBtn">
+            <i class="fas fa-search"></i> Analyze
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <div class="container">
+      <!-- Stats Cards -->
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card">
+          <div class="stat-icon icon-purple"><i class="fas fa-users"></i></div>
+          <div class="stat-value" id="statTotalProfiles">—</div>
+          <div class="stat-label">Total Profiles</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-cyan"><i class="fas fa-user-friends"></i></div>
+          <div class="stat-value" id="statAvgFollowers">—</div>
+          <div class="stat-label">Avg Followers</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-rose"><i class="fas fa-code"></i></div>
+          <div class="stat-value" id="statTopLanguage">—</div>
+          <div class="stat-label">Most Popular Language</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-green"><i class="fas fa-star"></i></div>
+          <div class="stat-value" id="statTotalStars">—</div>
+          <div class="stat-label">Total Stars</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-amber"><i class="fas fa-medal"></i></div>
+          <div class="stat-value" id="statAvgScore">—</div>
+          <div class="stat-label">Avg Profile Score</div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="charts-grid mb-8">
+        <div class="chart-card">
+          <h3><i class="fas fa-code"></i> Language Distribution</h3>
+          <div class="chart-container"><canvas id="langChart"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3><i class="fas fa-chart-bar"></i> Followers Distribution</h3>
+          <div class="chart-container"><canvas id="followersChart"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3><i class="fas fa-star"></i> Top Users by Score</h3>
+          <div class="chart-container"><canvas id="scoreChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Profiles Table -->
+      <section id="profiles-section" class="mb-8">
+        <div class="section-header">
+          <div class="section-title"><span>👥</span> Analyzed Profiles</div>
+          <div class="flex gap-2">
+            <button class="btn btn-outline btn-sm" onclick="exportCSV()">
+              <i class="fas fa-download"></i> Export CSV
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <div class="table-controls">
+            <input type="text" id="searchInput" placeholder="🔍 Search username or name..." style="flex:1;min-width:200px;" />
+            <select id="langFilter">
+              <option value="">All Languages</option>
+            </select>
+            <select id="sortSelect">
+              <option value="analyzed_at">Sort: Recent</option>
+              <option value="followers">Sort: Followers</option>
+              <option value="total_stars">Sort: Stars</option>
+              <option value="public_repos">Sort: Repos</option>
+              <option value="profile_score">Sort: Score</option>
+            </select>
+            <select id="orderSelect">
+              <option value="DESC">Descending</option>
+              <option value="ASC">Ascending</option>
+            </select>
+          </div>
+
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>User</th>
+                  <th><i class="fas fa-user-friends"></i> Followers</th>
+                  <th><i class="fas fa-book"></i> Repos</th>
+                  <th><i class="fas fa-star"></i> Stars</th>
+                  <th>Language</th>
+                  <th><i class="fas fa-medal"></i> Score</th>
+                  <th>Analyzed</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="profilesTableBody">
+                <tr><td colspan="9"><div class="empty-state"><div class="empty-icon">🔍</div><h3>No profiles yet</h3><p>Enter a GitHub username above to analyze your first profile.</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pagination" id="paginationContainer" style="display:none;">
+            <div class="pagination-info" id="paginationInfo"></div>
+            <div class="pagination-buttons" id="paginationButtons"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2-column: Leaderboard + Activity -->
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:24px;margin-bottom:40px;" id="bottomGrid">
+
+        <!-- Leaderboard -->
+        <section id="leaderboard-section">
+          <div class="section-header mb-4">
+            <div class="section-title"><span>🏆</span> Leaderboard</div>
+          </div>
+          <div class="leaderboard-grid" id="leaderboardGrid">
+            <div class="leaderboard-card"><p class="text-muted" style="font-size:0.85rem;">Loading...</p></div>
+          </div>
+        </section>
+
+        <!-- Activity + Rate Limit -->
+        <div>
+          <!-- Rate Limit -->
+          <div class="card mb-4" id="rateLimitCard">
+            <div class="section-title mb-4"><span>⚡</span> GitHub Rate Limit</div>
+            <div id="rateLimitContent" style="font-size:0.85rem;color:var(--text-muted);">Loading...</div>
+          </div>
+
+          <!-- Activity Feed -->
+          <div class="card">
+            <div class="section-title mb-4"><span>📋</span> Recent Activity</div>
+            <div class="activity-feed" id="activityFeed">
+              <p style="font-size:0.85rem;color:var(--text-muted);">No activity yet.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /container -->
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        <p>Built with ❤️ using Node.js, Express, MySQL & GitHub API &nbsp;·&nbsp; <a href="/api-docs" target="_blank">API Documentation</a></p>
+      </div>
+    </footer>
+  </div><!-- /page-wrapper -->
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

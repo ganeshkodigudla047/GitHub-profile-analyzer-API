@@ -1,0 +1,371 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "GitHub Profile Analyzer API",
+    "description": "Production-ready REST API for analyzing GitHub profiles. Fetches profile data, repository information, calculates insights, and stores results in MySQL.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "GitHub Profile Analyzer",
+      "url": "https://github.com"
+    },
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000/api",
+      "description": "Local Development"
+    }
+  ],
+  "tags": [
+    { "name": "Analysis", "description": "Analyze GitHub profiles" },
+    { "name": "Profiles", "description": "Profile CRUD operations" },
+    { "name": "Analytics", "description": "Statistics and leaderboards" },
+    { "name": "Export", "description": "Export data as PDF or CSV" },
+    { "name": "Activity", "description": "Activity feed and rate limits" }
+  ],
+  "paths": {
+    "/analyze/{username}": {
+      "get": {
+        "tags": ["Analysis"],
+        "summary": "Analyze a GitHub profile",
+        "description": "Fetches profile data from GitHub API, calculates insights, stores in database.",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "description": "GitHub username (alphanumeric + hyphens, max 39 chars)",
+            "schema": { "type": "string", "example": "torvalds" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile analyzed successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProfileResponse" },
+                "example": {
+                  "success": true,
+                  "message": "Profile analyzed successfully",
+                  "data": {
+                    "id": 1,
+                    "username": "torvalds",
+                    "name": "Linus Torvalds",
+                    "followers": 235000,
+                    "public_repos": 7,
+                    "total_stars": 18000,
+                    "profile_score": 524000
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      },
+      "put": {
+        "tags": ["Analysis"],
+        "summary": "Refresh a profile analysis",
+        "description": "Re-fetches and updates the analysis for an existing profile.",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "torvalds" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile refreshed successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProfileResponse" }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/profiles": {
+      "get": {
+        "tags": ["Profiles"],
+        "summary": "Get all profiles",
+        "description": "Returns paginated list of analyzed profiles with optional filters.",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10, "maximum": 100 } },
+          { "name": "q", "in": "query", "description": "Search by username or name", "schema": { "type": "string" } },
+          { "name": "language", "in": "query", "description": "Filter by most used language", "schema": { "type": "string", "example": "JavaScript" } },
+          { "name": "sortBy", "in": "query", "schema": { "type": "string", "enum": ["followers", "public_repos", "total_stars", "profile_score", "analyzed_at", "username"], "default": "analyzed_at" } },
+          { "name": "order", "in": "query", "schema": { "type": "string", "enum": ["ASC", "DESC"], "default": "DESC" } },
+          { "name": "minFollowers", "in": "query", "schema": { "type": "integer" } },
+          { "name": "maxFollowers", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profiles fetched successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaginatedProfilesResponse" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/profiles/search": {
+      "get": {
+        "tags": ["Profiles"],
+        "summary": "Search profiles",
+        "parameters": [
+          { "name": "q", "in": "query", "required": true, "schema": { "type": "string", "example": "linux" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Search results", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaginatedProfilesResponse" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/profiles/{id}": {
+      "get": {
+        "tags": ["Profiles"],
+        "summary": "Get profile by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "example": 1 } }
+        ],
+        "responses": {
+          "200": { "description": "Profile found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProfileResponse" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Profiles"],
+        "summary": "Delete a profile",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Profile deleted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessMessage" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profiles/{id}/export/pdf": {
+      "get": {
+        "tags": ["Export"],
+        "summary": "Export profile as PDF",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF file download",
+            "content": { "application/pdf": { "schema": { "type": "string", "format": "binary" } } }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/profiles/export/csv": {
+      "get": {
+        "tags": ["Export"],
+        "summary": "Export all profiles as CSV",
+        "responses": {
+          "200": {
+            "description": "CSV file download",
+            "content": { "text/csv": { "schema": { "type": "string" } } }
+          }
+        }
+      }
+    },
+    "/stats": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "Get platform statistics",
+        "responses": {
+          "200": {
+            "description": "Statistics data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "total_profiles": { "type": "integer" },
+                        "avg_followers": { "type": "string" },
+                        "avg_repos": { "type": "string" },
+                        "total_stars": { "type": "integer" },
+                        "avg_score": { "type": "string" },
+                        "language_distribution": { "type": "array", "items": { "type": "object" } }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/leaderboard": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "Get leaderboard",
+        "description": "Top 10 profiles by followers, repos, stars, and score.",
+        "responses": {
+          "200": {
+            "description": "Leaderboard data",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    },
+    "/leaderboard/export/csv": {
+      "get": {
+        "tags": ["Export"],
+        "summary": "Export leaderboard as CSV",
+        "responses": {
+          "200": { "description": "CSV file", "content": { "text/csv": { "schema": { "type": "string" } } } }
+        }
+      }
+    },
+    "/rate-limit": {
+      "get": {
+        "tags": ["Activity"],
+        "summary": "Get GitHub API rate limit status",
+        "responses": {
+          "200": {
+            "description": "Rate limit info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "limit": { "type": "integer", "example": 5000 },
+                        "remaining": { "type": "integer", "example": 4950 },
+                        "reset": { "type": "integer", "description": "Unix timestamp" },
+                        "used": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recent": {
+      "get": {
+        "tags": ["Activity"],
+        "summary": "Get recent activity feed",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20, "maximum": 50 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent activity list",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Profile": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "username": { "type": "string" },
+          "name": { "type": "string" },
+          "bio": { "type": "string" },
+          "followers": { "type": "integer" },
+          "following": { "type": "integer" },
+          "public_repos": { "type": "integer" },
+          "total_stars": { "type": "integer" },
+          "total_forks": { "type": "integer" },
+          "most_used_language": { "type": "string" },
+          "total_repo_size": { "type": "integer" },
+          "average_repo_size": { "type": "number" },
+          "oldest_repo": { "type": "string" },
+          "newest_repo": { "type": "string" },
+          "account_age_days": { "type": "integer" },
+          "avatar_url": { "type": "string" },
+          "profile_url": { "type": "string" },
+          "profile_score": { "type": "integer" },
+          "analyzed_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ProfileResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "$ref": "#/components/schemas/Profile" }
+        }
+      },
+      "PaginatedProfilesResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Profile" } },
+          "totalRecords": { "type": "integer" },
+          "currentPage": { "type": "integer" },
+          "totalPages": { "type": "integer" },
+          "limit": { "type": "integer" }
+        }
+      },
+      "SuccessMessage": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad request - invalid input",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "RateLimited": {
+        "description": "GitHub API rate limit exceeded",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "ServerError": {
+        "description": "Internal server error",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      }
+    }
+  }
+}
