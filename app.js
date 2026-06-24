@@ -33,17 +33,15 @@ app.use(helmet({
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
       scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
       imgSrc: ["'self'", 'data:', 'https:', 'http:'],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
     },
   },
   crossOriginEmbedderPolicy: false,
 }));
 
-// CORS - allow all origins in development, restrict in production
+// CORS - allow all origins
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? [process.env.API_BASE_URL || 'http://localhost:3000']
-    : '*',
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));

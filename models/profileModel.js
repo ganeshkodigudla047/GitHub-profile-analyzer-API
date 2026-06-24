@@ -119,9 +119,11 @@ async function findAll({ page = 1, limit = 10, search = '', language = '', sortB
   const total = countRows[0].total;
 
   // Fetch paginated records
+  const safeLimit = parseInt(limit) || 10;
+  const safeOffset = parseInt(offset) || 0;
   const rows = await query(
-    `SELECT * FROM github_profiles ${whereClause} ORDER BY ${safeSort} ${safeOrder} LIMIT ? OFFSET ?`,
-    [...params, parseInt(limit), offset]
+    `SELECT * FROM github_profiles ${whereClause} ORDER BY ${safeSort} ${safeOrder} LIMIT ${safeLimit} OFFSET ${safeOffset}`,
+    params
   );
 
   return {
