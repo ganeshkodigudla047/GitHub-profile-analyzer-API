@@ -92,9 +92,9 @@ async function findAll({ page = 1, limit = 10, search = '', language = '', sortB
   let conditions = [];
   let params = [];
 
-  if (search) {
+  if (search && search.trim()) {
     conditions.push('(username LIKE ? OR name LIKE ?)');
-    params.push(`%${search}%`, `%${search}%`);
+    params.push(`%${search.trim()}%`, `%${search.trim()}%`);
   }
   if (language) {
     conditions.push('most_used_language = ?');

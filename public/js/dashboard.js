@@ -144,13 +144,19 @@ async function loadProfiles() {
   const order = document.getElementById('orderSelect').value;
 
   const params = new URLSearchParams({
-    page: currentPage, limit: 10,
-    q: search, language, sortBy, order,
+    page: currentPage,
+    limit: 10,
+    sortBy,
+    order,
   });
+  if (search) params.set('q', search);
+  if (language) params.set('language', language);
 
   try {
     const res = await fetch(`${API}/profiles?${params}`);
     const result = await res.json();
+
+    console.log('Profiles API response:', result); // debug
 
     totalPages = result.totalPages || 1;
     renderProfilesTable(result.data || []);
@@ -159,6 +165,10 @@ async function loadProfiles() {
     renderScoreChart(result.data || []);
   } catch (e) {
     console.error('Profiles load failed:', e);
+    document.getElementById('profilesTableBody').innerHTML = `
+      <tr><td colspan="9" style="text-align:center;padding:20px;color:var(--danger);">
+        ⚠️ Failed to load profiles. Check console for details.
+      </td></tr>`;
   }
 }
 
