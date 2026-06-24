@@ -23,7 +23,8 @@ const swaggerDocument = require('./swagger/swagger.json');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ─── Security Middleware ──────────────────────────────────────────────────────
+// Trust proxy - required for Railway, Render, and other cloud platforms
+app.set('trust proxy', 1);
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -117,11 +118,50 @@ app.get('/docs', (req, res) => res.redirect('/api-docs'));
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
+// ─── Auto Migration ───────────────────────────────────────────────────────────
+async function runMigrations() {
+  const { pool } = require('./config/db');
+  try {
+    await pool.execute(`CREATE TABLE IF NOT EXISTS github_profiles (
+      id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(100) NOT NULL UNIQUE,
+      name VARCHAR(255), bio TEXT, followers INT DEFAULT 0, following INT DEFAULT 0,
+      public_repos INT DEFAULT 0, total_stars INT DEFAULT 0, total_forks INT DEFAULT 0,
+      most_used_language VARCHAR(100), total_repo_size BIGINT DEFAULT 0,
+      average_repo_size DECIMAL(10,2) DEFAULT 0, oldest_repo VARCHAR(255),
+      newest_repo VARCHAR(255), account_age_days INT DEFAULT 0,
+      avatar_url VARCHAR(500), profile_url VARCHAR(500), profile_score INT DEFAULT 0,
+      created_at DATETIME, updated_at DATETIME,
+      analyzed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+
+    await pool.execute(`CREATE TABLE IF NOT EXISTS activity_log (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      action ENUM('analyzed','refreshed','deleted','exported') NOT NULL,
+      username VARCHAR(100) NOT NULL, details TEXT, ip_address VARCHAR(45),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+
+    await pool.execute(`CREATE TABLE IF NOT EXISTS language_stats (
+      id INT AUTO_INCREMENT PRIMARY KEY, language VARCHAR(100) NOT NULL UNIQUE,
+      usage_count INT DEFAULT 1,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+
+    logger.info('✅ Database tables ready');
+  } catch (err) {
+    logger.error('Migration error:', err.message);
+    throw err;
+  }
+}
+
 // ─── Start Server ─────────────────────────────────────────────────────────────
 async function startServer() {
   try {
     // Test DB connection before accepting traffic
     await testConnection();
+
+    // Auto-run migrations on startup (creates tables if they don't exist)
+    await runMigrations();
 
     app.listen(PORT, () => {
       logger.info('═══════════════════════════════════════════');
